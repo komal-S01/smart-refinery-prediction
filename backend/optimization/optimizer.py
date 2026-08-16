@@ -60,6 +60,10 @@ df = pd.read_csv(
 )
 
 
+# ============================================================
+# CONTROLLABLE VARIABLES
+# ============================================================
+
 CONTROLLABLE = [
     "Furnace_Temperature_C",
     "Reflux_Ratio",
@@ -68,61 +72,94 @@ CONTROLLABLE = [
 
 
 # ============================================================
-# BUILD MODEL INPUT
+# PREPARE MULTIPLE CANDIDATES FOR A MODEL
 # ============================================================
 
-def build_row_for_model(base_row, model):
+def prepare_candidates(candidates, model):
     """
-    Given a base feature row and a model,
-    return a 1-row DataFrame containing exactly
-    the features required by that model.
+    Prepare all candidate setpoints at once.
+
+    This performs feature engineering in batch instead of
+    repeatedly creating a DataFrame for every candidate.
     """
 
-    needed = list(model.feature_names_in_)
+    data = candidates.copy()
 
-    row = {}
+    # --------------------------------------------------------
+    # Feature engineering
+    # --------------------------------------------------------
 
-    for col in needed:
-        row[col] = base_row[col]
+    data["fuel_per_electricity"] = (
+        data["Fuel_Gas_Consumption"]
+        / data["Electricity_kWh"].replace(0, 1e-10)
+    )
 
-    return pd.DataFrame([row])
+    data["temp_differential"] = (
+        data["Furnace_Temperature_C"]
+        - data["Feed_Temperature_C"]
+    )
+
+    data["maintenance_per_exp"] = (
+        data["Maintenance_Days"]
+        / data["Operator_Experience_yrs"].replace(0, 1e-10)
+    )
+
+    # --------------------------------------------------------
+    # Use exactly the features expected by this model
+    # --------------------------------------------------------
+
+    required_features = list(model.feature_names_in_)
+
+    return data[required_features]
 
 
 # ============================================================
-# PREDICT FOR GIVEN SETPOINTS
+# PREDICT ALL SETPOINT COMBINATIONS AT ONCE
 # ============================================================
 
-def score_setpoints(
-    base_row,
-    furnace_temp,
-    reflux_ratio,
-    column_pressure,
-    weights=(0.4, 0.4, 0.2)
-):
+def score_setpoints_batch(candidates):
     """
-    Predict Throughput, Efficiency and Energy
-    for a candidate setpoint combination.
+    Predict throughput, efficiency and energy for all
+    candidate setpoints in a single batch.
     """
 
-    candidate = base_row.copy()
+    # Prepare inputs for each model
+    throughput_X = prepare_candidates(
+        candidates,
+        throughput_model
+    )
 
-    candidate["Furnace_Temperature_C"] = furnace_temp
-    candidate["Reflux_Ratio"] = reflux_ratio
-    candidate["Column_Pressure_bar"] = column_pressure
+    efficiency_X = prepare_candidates(
+        candidates,
+        efficiency_model
+    )
 
-    thr_pred = throughput_model.predict(
-        build_row_for_model(candidate, throughput_model)
-    )[0]
+    energy_X = prepare_candidates(
+        candidates,
+        energy_model
+    )
 
-    eff_pred = efficiency_model.predict(
-        build_row_for_model(candidate, efficiency_model)
-    )[0]
+    # --------------------------------------------------------
+    # Batch predictions
+    # --------------------------------------------------------
 
-    energy_pred = energy_model.predict(
-        build_row_for_model(candidate, energy_model)
-    )[0]
+    throughput_predictions = throughput_model.predict(
+        throughput_X
+    )
 
-    return thr_pred, eff_pred, energy_pred
+    efficiency_predictions = efficiency_model.predict(
+        efficiency_X
+    )
+
+    energy_predictions = energy_model.predict(
+        energy_X
+    )
+
+    return (
+        throughput_predictions,
+        efficiency_predictions,
+        energy_predictions
+    )
 
 
 # ============================================================
@@ -132,12 +169,25 @@ def score_setpoints(
 def find_best_setpoints(
     base_row,
     weights=(0.4, 0.4, 0.2),
-    n_steps=15
+    n_steps=8
 ):
     """
-    Grid search over realistic ranges of the
-    three controllable setpoints.
+    Find the best combination of:
+
+        Furnace Temperature
+        Reflux Ratio
+        Column Pressure
+
+    using batch ML prediction.
+
+    n_steps=8 gives:
+
+        8 × 8 × 8 = 512 combinations
     """
+
+    # ========================================================
+    # GENERATE REALISTIC SEARCH RANGES
+    # ========================================================
 
     furnace_range = np.linspace(
         df["Furnace_Temperature_C"].quantile(0.05),
@@ -157,7 +207,55 @@ def find_best_setpoints(
         n_steps
     )
 
-    # Normalize target values
+
+    # ========================================================
+    # GENERATE ALL COMBINATIONS
+    # ========================================================
+
+    combinations = []
+
+    for furnace_temp in furnace_range:
+
+        for reflux_ratio in reflux_range:
+
+            for column_pressure in pressure_range:
+
+                candidate = base_row.copy()
+
+                candidate["Furnace_Temperature_C"] = furnace_temp
+                candidate["Reflux_Ratio"] = reflux_ratio
+                candidate["Column_Pressure_bar"] = column_pressure
+
+                combinations.append(candidate)
+
+
+    # Convert all candidates into ONE DataFrame
+    candidates_df = pd.DataFrame(combinations)
+
+
+    print(
+        f"Optimizing {len(candidates_df)} "
+        f"setpoint combinations..."
+    )
+
+
+    # ========================================================
+    # BATCH ML PREDICTION
+    # ========================================================
+
+    (
+        throughput_predictions,
+        efficiency_predictions,
+        energy_predictions
+    ) = score_setpoints_batch(
+        candidates_df
+    )
+
+
+    # ========================================================
+    # NORMALIZATION
+    # ========================================================
+
     thr_min = df["Unit_Throughput_BPH"].min()
     thr_max = df["Unit_Throughput_BPH"].max()
 
@@ -167,56 +265,64 @@ def find_best_setpoints(
     en_min = df["Energy_Consumption_MWh"].min()
     en_max = df["Energy_Consumption_MWh"].max()
 
-    best_score = -np.inf
-    best_combo = None
 
-    for ft in furnace_range:
+    # Prevent division by zero
+    thr_range = max(thr_max - thr_min, 1e-10)
+    eff_range = max(eff_max - eff_min, 1e-10)
+    en_range = max(en_max - en_min, 1e-10)
 
-        for rr in reflux_range:
 
-            for cp in pressure_range:
+    # ========================================================
+    # NORMALIZED SCORES
+    # ========================================================
 
-                thr, eff, en = score_setpoints(
-                    base_row,
-                    ft,
-                    rr,
-                    cp
-                )
+    throughput_score = (
+        throughput_predictions - thr_min
+    ) / thr_range
 
-                thr_norm = (
-                    (thr - thr_min) /
-                    (thr_max - thr_min)
-                )
 
-                eff_norm = (
-                    (eff - eff_min) /
-                    (eff_max - eff_min)
-                )
+    efficiency_score = (
+        efficiency_predictions - eff_min
+    ) / eff_range
 
-                # Lower energy is better
-                en_norm = 1 - (
-                    (en - en_min) /
-                    (en_max - en_min)
-                )
 
-                score = (
-                    weights[0] * thr_norm
-                    + weights[1] * eff_norm
-                    + weights[2] * en_norm
-                )
+    # Lower energy is better
+    energy_score = 1 - (
+        (energy_predictions - en_min)
+        / en_range
+    )
 
-                if score > best_score:
 
-                    best_score = score
+    # ========================================================
+    # COMBINED SCORE
+    # ========================================================
 
-                    best_combo = (
-                        ft,
-                        rr,
-                        cp,
-                        thr,
-                        eff,
-                        en
-                    )
+    scores = (
+        weights[0] * throughput_score
+        + weights[1] * efficiency_score
+        + weights[2] * energy_score
+    )
+
+
+    # ========================================================
+    # FIND BEST COMBINATION
+    # ========================================================
+
+    best_index = np.argmax(scores)
+
+    best_row = candidates_df.iloc[best_index]
+
+    best_combo = (
+        best_row["Furnace_Temperature_C"],
+        best_row["Reflux_Ratio"],
+        best_row["Column_Pressure_bar"],
+        throughput_predictions[best_index],
+        efficiency_predictions[best_index],
+        energy_predictions[best_index]
+    )
+
+    best_score = scores[best_index]
+
 
     return best_combo, best_score
 
@@ -230,8 +336,7 @@ def generate_recommendation_report(
     n_steps=8
 ):
     """
-    Run optimization across multiple real scenarios
-    from the engineered dataset.
+    Run optimization across multiple real scenarios.
     """
 
     sample_rows = df.sample(
@@ -250,8 +355,17 @@ def generate_recommendation_report(
             n_steps=n_steps
         )
 
-        ft, rr, cp, thr, eff, en = best_combo
+        (
+            ft,
+            rr,
+            cp,
+            thr,
+            eff,
+            en
+        ) = best_combo
 
+
+        # Determine crude type
         crude = "Heavy Sour"
 
         if row["Crude_Type_Light Sweet"]:
@@ -259,6 +373,7 @@ def generate_recommendation_report(
 
         elif row["Crude_Type_Medium"]:
             crude = "Medium"
+
 
         records.append({
 
@@ -303,6 +418,7 @@ def generate_recommendation_report(
                 round(en, 2)
         })
 
+
     return pd.DataFrame(records)
 
 
@@ -317,35 +433,28 @@ if __name__ == "__main__":
 
     base_row = df.iloc[0].to_dict()
 
-    # Test prediction using current setpoints
-    thr, eff, en = score_setpoints(
-        base_row,
-        base_row["Furnace_Temperature_C"],
-        base_row["Reflux_Ratio"],
-        base_row["Column_Pressure_bar"]
-    )
 
-    print("\n--- Test Prediction ---")
+    # ========================================================
+    # OPTIMIZATION TEST
+    # ========================================================
 
-    print(
-        f"Throughput: {thr:.2f}"
-    )
+    print("\nStarting optimization...")
 
-    print(
-        f"Efficiency: {eff:.2f}"
-    )
-
-    print(
-        f"Energy: {en:.2f}"
-    )
-
-    # Find optimized setpoints
     best_combo, best_score = find_best_setpoints(
         base_row,
         n_steps=8
     )
 
-    ft, rr, cp, thr, eff, en = best_combo
+
+    (
+        ft,
+        rr,
+        cp,
+        thr,
+        eff,
+        en
+    ) = best_combo
+
 
     print("\n--- Best Setpoint Recommendation ---")
 

@@ -1,16 +1,44 @@
-# React + Vite
+# REFINEX — Smart Refinery Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A completely redesigned vanilla HTML/CSS/JS frontend for the Smart Refinery Prediction project.
 
-Currently, two official plugins are available:
+## Design direction
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+This version intentionally does NOT copy the earlier reference website. It uses a dark industrial control-room aesthetic:
 
-## React Compiler
+- deep graphite/navy background
+- electric cyan + amber + violet accents
+- refinery radar visualization
+- animated scanline/grid
+- telemetry cards
+- industrial condensed typography
+- responsive mobile layout
+- prediction + optimization workspaces
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Backend
 
-## Expanding the ESLint configuration
+Expected FastAPI base URL:
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+`http://127.0.0.1:8000`
+
+Used endpoints:
+
+- `GET /health`
+- `POST /predict`
+- `POST /optimize`
+
+The payload field names match the existing Smart Refinery backend.
+
+## Run
+
+From the project root:
+
+```powershell
+python -m http.server 5500 --directory frontend
+```
+
+Open:
+
+`http://127.0.0.1:5500`
+
+Or keep using your existing `main.py` launcher that starts both servers.

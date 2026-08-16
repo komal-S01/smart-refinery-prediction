@@ -1,13 +1,303 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>AI Smart Refinery Optimization System</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>REFINEX // Smart Refinery Intelligence</title>
+  <meta name="description" content="AI-powered refinery prediction and setpoint optimization control center.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700&family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="ambient ambient-1"></div>
+  <div class="ambient ambient-2"></div>
+  <div class="grid-noise"></div>
+  <div class="scanline"></div>
+
+  <header class="topbar">
+    <a class="logo" href="#overview">
+      <span class="logo-symbol">
+        <span class="logo-core">RX</span>
+      </span>
+      <span class="logo-copy"><b>REFINEX</b><small>INTELLIGENCE CONTROL</small></span>
+    </a>
+
+    <nav class="nav">
+      <a class="active" href="#overview">Control</a>
+      <a href="#prediction">Prediction</a>
+      <a href="#optimizer">Optimization</a>
+      <a href="#insights">System</a>
+    </nav>
+
+    <div class="header-actions">
+      <span id="apiStatus" class="api-pill offline"><i></i><span>API OFFLINE</span></span>
+      <button id="connectBtn" class="icon-btn" title="Connect API">↯</button>
+    </div>
+  </header>
+
+  <main>
+    <section id="overview" class="hero">
+      <div class="hero-left">
+        <div class="eyebrow"><span class="live-dot"></span> DIGITAL REFINERY / AI CONTROL LAYER</div>
+        <h1>Turn refinery data<br>into <span>better decisions.</span></h1>
+        <p class="hero-lead">A live decision cockpit for predicting throughput, equipment efficiency and energy demand — then searching for better operating setpoints.</p>
+
+        <div class="hero-actions">
+          <a href="#prediction" class="primary-btn">OPEN PREDICTION <span>↗</span></a>
+          <a href="#optimizer" class="ghost-btn">OPTIMIZE PROCESS <span>⌁</span></a>
+        </div>
+
+        <div class="hero-strip">
+          <div><span class="strip-label">MODELS</span><b>03</b><small>trained predictors</small></div>
+          <div><span class="strip-label">CONTROL</span><b>03</b><small>searchable setpoints</small></div>
+          <div><span class="strip-label">DECISIONS</span><b>02</b><small>predict + optimize</small></div>
+          <div><span class="strip-label">STATUS</span><b id="heroStatus">READY</b><small>local inference API</small></div>
+        </div>
+      </div>
+
+      <div class="hero-right">
+        <div class="radar-card">
+          <div class="radar-head">
+            <div>
+              <span>REFINERY PULSE</span>
+              <h2>Process radar</h2>
+            </div>
+            <span class="status-badge">LIVE</span>
+          </div>
+
+          <div class="radar">
+            <div class="radar-grid"></div>
+            <div class="radar-sweep"></div>
+            <div class="radar-ring r1"></div>
+            <div class="radar-ring r2"></div>
+            <div class="radar-ring r3"></div>
+            <div class="radar-center"><b id="heroEfficiency">—</b><small>EFFICIENCY</small></div>
+            <span class="blip b1"></span><span class="blip b2"></span><span class="blip b3"></span>
+          </div>
+
+          <div class="hero-metrics">
+            <div><span>THROUGHPUT</span><b id="heroThroughput">—</b><small>BPH</small></div>
+            <div><span>ENERGY</span><b id="heroEnergy">—</b><small>MWh</small></div>
+            <div><span>MODEL STATE</span><b id="heroModelState">IDLE</b><small>inference</small></div>
+          </div>
+
+          <div class="process-map">
+            <div class="pipe active"><i></i><span>FEED</span></div>
+            <div class="pipe active"><i></i><span>FURNACE</span></div>
+            <div class="pipe"><i></i><span>COLUMN</span></div>
+            <div class="pipe"><i></i><span>OUTPUT</span></div>
+          </div>
+        </div>
+
+        <div class="floating-chip chip-top">AI ENGINE <b>ONLINE</b></div>
+        <div class="floating-chip chip-bottom"><span>↗</span><div><b>Decision layer ready</b><small>Prediction → optimization</small></div></div>
+      </div>
+    </section>
+
+    <section id="prediction" class="section">
+      <div class="section-top">
+        <div>
+          <span class="section-code">01 / PREDICTION ENGINE</span>
+          <h2>Read the refinery <span>right now.</span></h2>
+          <p>Feed the trained models with the current operating scenario. The dashboard sends the same payload directly to your FastAPI backend.</p>
+        </div>
+        <span class="endpoint">POST /predict</span>
+      </div>
+
+      <div class="prediction-layout">
+        <form id="predictionForm" class="control-panel">
+          <div class="panel-head">
+            <div><span class="panel-index">INPUT</span><h3>Operating scenario</h3><p>Current plant conditions</p></div>
+            <button type="button" id="resetBtn" class="reset-btn">RESET ↺</button>
+          </div>
+
+          <div class="input-group">
+            <div class="group-head"><span>01</span><b>FEED & CRUDE</b></div>
+            <div class="fields">
+              <label>Crude Flow <em>BPH</em><input type="number" step="0.01" name="Crude_Flow_BPH" value="10000"></label>
+              <label>API Gravity <em>°API</em><input type="number" step="0.01" name="API_Gravity" value="32"></label>
+              <label>Feed Sulfur <em>%</em><input type="number" step="0.001" name="Sulfur_Feed_pct" value="1.2"></label>
+              <label>Feed Temperature <em>°C</em><input type="number" step="0.01" name="Feed_Temperature_C" value="180"></label>
+              <label>Diesel Sulfur <em>ppm</em><input type="number" step="0.01" name="Diesel_Sulfur_ppm" value="50"></label>
+              <label>Crude Type <em>class</em>
+                <select id="crudeType">
+                  <option value="light">Light Sweet</option>
+                  <option value="medium" selected>Medium</option>
+                  <option value="heavy">Heavy Sour</option>
+                </select>
+              </label>
+            </div>
+          </div>
+
+          <div class="input-group">
+            <div class="group-head"><span>02</span><b>PROCESS SETPOINTS</b></div>
+            <div class="fields">
+              <label>Furnace Temperature <em>°C</em><input type="number" step="0.01" name="Furnace_Temperature_C" value="350"></label>
+              <label>Column Pressure <em>bar</em><input type="number" step="0.01" name="Column_Pressure_bar" value="3"></label>
+              <label>Reflux Ratio <em>ratio</em><input type="number" step="0.01" name="Reflux_Ratio" value="2.5"></label>
+              <label>Catalyst Activity <em>%</em><input type="number" step="0.01" name="Catalyst_Activity_pct" value="90"></label>
+            </div>
+          </div>
+
+          <div class="input-group">
+            <div class="group-head"><span>03</span><b>EQUIPMENT & OPERATIONS</b></div>
+            <div class="fields">
+              <label>Pump Vibration <em>mm/s</em><input type="number" step="0.01" name="Pump_Vibration_mms" value="2.2"></label>
+              <label>Heat Exchanger <em>%</em><input type="number" step="0.01" name="HeatExchanger_Eff_pct" value="88"></label>
+              <label>Fuel Gas <em>units</em><input type="number" step="0.01" name="Fuel_Gas_Consumption" value="650"></label>
+              <label>Electricity <em>kWh</em><input type="number" step="0.01" name="Electricity_kWh" value="420"></label>
+              <label>Maintenance Days <em>days</em><input type="number" step="0.01" name="Maintenance_Days" value="8"></label>
+              <label>Operator Experience <em>years</em><input type="number" step="0.01" name="Operator_Experience_yrs" value="7"></label>
+            </div>
+          </div>
+
+          <button type="submit" id="predictBtn" class="execute-btn"><span class="execute-icon">▶</span><span>RUN AI PREDICTION</span><b>ENTER ↵</b></button>
+          <p id="predictionMessage" class="status-message">Ready. Submit the current scenario to the prediction API.</p>
+        </form>
+
+        <div class="results">
+          <div class="results-head"><span>MODEL OUTPUT</span><b id="predictionState">WAITING FOR INPUT</b></div>
+
+          <div class="metric-grid">
+            <article class="metric metric-throughput">
+              <div class="metric-label"><span>THROUGHPUT</span><i>↗</i></div>
+              <div class="metric-value"><b id="throughputValue">—</b><small>BPH</small></div>
+              <div class="meter"><i id="throughputBar"></i></div>
+              <p>Predicted process output</p>
+            </article>
+            <article class="metric metric-efficiency">
+              <div class="metric-label"><span>EQUIPMENT EFFICIENCY</span><i>✦</i></div>
+              <div class="metric-value"><b id="efficiencyValue">—</b><small>%</small></div>
+              <div class="meter"><i id="efficiencyBar"></i></div>
+              <p>Estimated operating efficiency</p>
+            </article>
+            <article class="metric metric-energy">
+              <div class="metric-label"><span>ENERGY CONSUMPTION</span><i>⌁</i></div>
+              <div class="metric-value"><b id="energyValue">—</b><small>MWh</small></div>
+              <div class="meter"><i id="energyBar"></i></div>
+              <p>Estimated energy requirement</p>
+            </article>
+          </div>
+
+          <div class="telemetry-card">
+            <div class="telemetry-head"><span>INFERENCE PIPELINE</span><b>3 / 3 MODELS</b></div>
+            <div class="pipeline">
+              <div class="node"><i>01</i><b>FEATURE<br>ENGINEERING</b><small>ratios + deltas</small></div>
+              <div class="connector"></div>
+              <div class="node"><i>02</i><b>MODEL<br>INFERENCE</b><small>energy / output / efficiency</small></div>
+              <div class="connector"></div>
+              <div class="node"><i>03</i><b>DECISION<br>OUTPUT</b><small>operational KPIs</small></div>
+            </div>
+          </div>
+
+          <div class="quick-read">
+            <div><span class="tiny-label">WHAT THE MODEL IS DOING</span><h3>Turning plant variables into a decision signal.</h3></div>
+            <div class="read-list">
+              <div><b>01</b><span>Feature engineering creates fuel/electricity, temperature differential and maintenance/experience ratios.</span></div>
+              <div><b>02</b><span>Three trained models independently estimate energy, throughput and equipment efficiency.</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="optimizer" class="section optimizer">
+      <div class="section-top">
+        <div>
+          <span class="section-code">02 / OPTIMIZATION ENGINE</span>
+          <h2>Don't just predict.<br><span>Find the better setting.</span></h2>
+          <p>The optimizer explores realistic combinations of furnace temperature, reflux ratio and column pressure and ranks them using the project's weighted objective.</p>
+        </div>
+        <span class="endpoint">POST /optimize</span>
+      </div>
+
+      <div class="optimizer-grid">
+        <div class="optimizer-console">
+          <div class="console-top"><span><i class="pulse-dot"></i> SEARCH ENGINE</span><b>WEIGHTED OBJECTIVE</b></div>
+          <div class="console-title">SETPOINT<br><span>SEARCH</span></div>
+          <p>Balance process output, equipment efficiency and energy demand.</p>
+
+          <div class="weight-bars">
+            <div><span>THROUGHPUT <b>40%</b></span><i><em style="width:40%"></em></i></div>
+            <div><span>EFFICIENCY <b>40%</b></span><i><em style="width:40%"></em></i></div>
+            <div><span>ENERGY <b>20%</b></span><i><em style="width:20%"></em></i></div>
+          </div>
+
+          <button id="optimizeBtn" class="optimize-btn"><span>✦</span><b>OPTIMIZE CURRENT SCENARIO</b><small>SEARCH SETPOINTS ↗</small></button>
+          <p id="optimizationMessage" class="status-message">Uses the same operating scenario from the prediction workspace.</p>
+
+          <div class="console-foot"><span>SEARCH GRID</span><b>8 × 8 × 8</b><small>512 candidates</small></div>
+        </div>
+
+        <div class="recommendation">
+          <div class="recommendation-head">
+            <div><span class="tiny-label">AI RECOMMENDATION</span><h3>Recommended operating point</h3></div>
+            <div class="score"><span>SCORE</span><b id="scoreValue">—</b></div>
+          </div>
+
+          <div class="setpoint-grid">
+            <div class="setpoint orange"><span>🔥</span><small>FURNACE TEMP.</small><b id="optFurnace">—</b><em>°C</em></div>
+            <div class="setpoint pink"><span>↻</span><small>REFLUX RATIO</small><b id="optReflux">—</b><em>ratio</em></div>
+            <div class="setpoint violet"><span>◇</span><small>COLUMN PRESSURE</small><b id="optPressure">—</b><em>bar</em></div>
+          </div>
+
+          <div class="expected-head"><span>EXPECTED PERFORMANCE</span><i>AFTER OPTIMIZATION</i></div>
+          <div class="expected-grid">
+            <div><span>THROUGHPUT</span><b id="optThroughput">—</b><small>BPH</small></div>
+            <div><span>EFFICIENCY</span><b id="optEfficiency">—</b><small>%</small></div>
+            <div><span>ENERGY</span><b id="optEnergy">—</b><small>MWh</small></div>
+          </div>
+
+          <div class="delta-card"><span>DECISION</span><b id="optimizationDecision">Run optimizer to generate a recommendation.</b></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="insights" class="section system">
+      <div class="section-top">
+        <div>
+          <span class="section-code">03 / SYSTEM MAP</span>
+          <h2>One pipeline.<br><span>Two decision modes.</span></h2>
+          <p>The interface is intentionally simple: the intelligence stays behind the scenes while the operator sees only useful signals.</p>
+        </div>
+      </div>
+
+      <div class="system-map">
+        <div class="system-node source"><small>INPUT</small><b>REFINERY<br>SCENARIO</b><span>feed + crude<br>process + equipment</span></div>
+        <div class="flow-line"><i></i></div>
+        <div class="system-node"><small>ENGINE</small><b>PREPROCESS</b><span>feature engineering<br>model alignment</span></div>
+        <div class="flow-line"><i></i></div>
+        <div class="system-node"><small>AI</small><b>3 MODELS</b><span>energy<br>throughput<br>efficiency</span></div>
+        <div class="branch">
+          <div class="branch-line"></div>
+          <div class="branch-card"><small>MODE 01</small><b>PREDICT</b><span>Current performance</span></div>
+          <div class="branch-card accent"><small>MODE 02</small><b>OPTIMIZE</b><span>Better setpoints</span></div>
+        </div>
+      </div>
+
+      <div class="footer-banner">
+        <div><span>REFINEX / SMART REFINERY DECISION SUPPORT</span><h3>Observe. Predict. Optimize.</h3></div>
+        <a href="#overview" class="back-btn">BACK TO CONTROL ↑</a>
+      </div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast"></div>
+
+  <div id="apiModal" class="modal-backdrop">
+    <div class="modal">
+      <button id="closeModal" class="modal-close">×</button>
+      <span class="section-code">CONNECTION</span>
+      <h3>Connect FastAPI</h3>
+      <p>Point the control center at the API that hosts your refinery models.</p>
+      <label>API BASE URL<input id="apiUrlInput" value="http://127.0.0.1:8000"></label>
+      <button id="saveApiBtn" class="primary-btn full">SAVE & TEST CONNECTION</button>
+      <small>Checks <code>/health</code> before saving.</small>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
 </html>
